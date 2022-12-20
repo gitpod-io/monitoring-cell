@@ -55,9 +55,9 @@ type CellReconciler struct {
 //+kubebuilder:rbac:groups=monitoring.gitpod.io,resources=cells/finalizers,verbs=update
 //+kubebuilder:rbac:groups=,resources=services,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=,resources=serviceaccounts,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterrolebindings,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=apps,resources=deployments,verbs=get;list;watch;create;update;patch;delete
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -76,6 +76,7 @@ func (r *CellReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	err := r.reconcilePrometheusOperator(ctx, &cell, req)
 	if err != nil {
 		r.Logger.Error(err, "Failed to reconcile Prometheus-Operator")
+		return ctrl.Result{}, err
 	}
 
 	cell.Status.PrometheusReady = isPrometheusReady
