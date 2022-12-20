@@ -17,6 +17,7 @@ limitations under the License.
 package v1alpha1
 
 import (
+	pov1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -28,14 +29,38 @@ type CellSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	// Foo is an example field of Cell. Edit cell_types.go to remove/update
-	Foo string `json:"foo,omitempty"`
+	Metrics MetricsSpec `json:"metrics,omitempty"`
+	Logs    LogsSpec    `json:"logs,omitempty"`
+	Traces  TracesSpec  `json:"traces,omitempty"`
+}
+
+// MetricsSpec defines how metrics are handled within a monitoring cell
+type MetricsSpec struct {
+	// UpstreamRemoteWrites defines the remote-write configuration used by the Prometheus instance
+	UpstreamRemoteWrites []pov1.RemoteWriteSpec `json:"upstream_remote_writes"`
+
+	// Droplist defines metrics that will be dropped during scrape time. Metrics added to Droplist won't be available at any stage of our metrics pipeline
+	Droplist []string `json:"drop_list,omitempty"`
+
+	// UpstreamAllowList defines which metrics are allowed to be remote-written to upstream
+	UpstreamAllowlist []string `json:"upstream_allow_list,omitempty"`
+}
+
+// LogsSpec defines how logs are handled within a monitoring cell
+type LogsSpec struct {
+}
+
+// TracesSpec defines how traces are handled within a monitoring cell
+type TracesSpec struct {
 }
 
 // CellStatus defines the observed state of Cell
 type CellStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// PrometheusReady reports whether Prometheus is in a ready or broken state
+	PrometheusReady *bool `json:"prometheus_ready,omitempty"`
 }
 
 //+kubebuilder:object:root=true
