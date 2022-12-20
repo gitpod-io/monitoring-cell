@@ -1,0 +1,27 @@
+# permissions for end users to view cells.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  labels:
+    app.kubernetes.io/name: clusterrole
+    app.kubernetes.io/instance: cell-viewer-role
+    app.kubernetes.io/component: rbac
+    app.kubernetes.io/created-by: monitoring-cell
+    app.kubernetes.io/part-of: monitoring-cell
+    app.kubernetes.io/managed-by: kustomize
+  name: cell-viewer-role
+rules:
+- apiGroups:
+  - monitoring.gitpod.io
+  resources:
+  - cells
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - monitoring.gitpod.io
+  resources:
+  - cells/status
+  verbs:
+  - get

@@ -1,0 +1,16 @@
+domain: gitpod.io
+layout:
+- go.kubebuilder.io/v3
+projectName: monitoring-cell
+repo: github.com/gitpod-io/monitoring-cell
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: gitpod.io
+  group: monitoring
+  kind: Cell
+  path: github.com/gitpod-io/monitoring-cell/api/v1alpha1
+  version: v1alpha1
+version: "3"

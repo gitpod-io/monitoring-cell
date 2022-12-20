@@ -1,0 +1,12 @@
+apiVersion: monitoring.gitpod.io/v1alpha1
+kind: Cell
+metadata:
+  labels:
+    app.kubernetes.io/name: cell
+    app.kubernetes.io/instance: cell-sample
+    app.kubernetes.io/part-of: monitoring-cell
+    app.kubernetes.io/managed-by: kustomize
+    app.kubernetes.io/created-by: monitoring-cell
+  name: cell-sample
+spec:
+  # TODO(user): Add fields here
