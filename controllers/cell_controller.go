@@ -23,7 +23,6 @@ import (
 
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/log"
@@ -72,7 +71,6 @@ type CellReconciler struct {
 func (r *CellReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	r.Logger = log.FromContext(ctx)
 	var cell monitoringv1alpha1.Cell
-	isPrometheusReady := pointer.Bool(false)
 
 	if err := r.Get(ctx, req.NamespacedName, &cell); err != nil {
 		r.Logger.Error(err, "Unable to fetch Cell")

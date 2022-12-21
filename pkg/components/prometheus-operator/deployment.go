@@ -22,6 +22,14 @@ func Deployment(cell *monitoringv1alpha1.Cell) *appsv1.Deployment {
 			Name:      fmt.Sprintf("%s-%s", Name, cell.Name),
 			Namespace: cell.Namespace,
 			Labels:    cell.Labels,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: cell.APIVersion,
+					Kind:       cell.Kind,
+					Name:       cell.Name,
+					UID:        cell.UID,
+				},
+			},
 		},
 		Spec: appsv1.DeploymentSpec{
 			Selector: &metav1.LabelSelector{MatchLabels: cell.Labels},
