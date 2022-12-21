@@ -19,6 +19,14 @@ func ServiceMonitor(cell *monitoringv1alpha1.Cell) *monitoringv1.ServiceMonitor 
 			Name:      fmt.Sprintf("%s-%s", Name, cell.Name),
 			Namespace: cell.Namespace,
 			Labels:    cell.Labels,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: cell.APIVersion,
+					Kind:       cell.Kind,
+					Name:       cell.Name,
+					UID:        cell.UID,
+				},
+			},
 		},
 		Spec: monitoringv1.ServiceMonitorSpec{
 			Endpoints: []monitoringv1.Endpoint{

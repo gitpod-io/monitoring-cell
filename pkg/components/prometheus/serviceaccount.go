@@ -20,6 +20,14 @@ func ServiceAccount(cell *monitoringv1alpha1.Cell) *corev1.ServiceAccount {
 			Name:      fmt.Sprintf("%s-%s", Name, cell.Name),
 			Namespace: cell.Namespace,
 			Labels:    cell.Labels,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: cell.APIVersion,
+					Kind:       cell.Kind,
+					Name:       cell.Name,
+					UID:        cell.UID,
+				},
+			},
 		},
 		AutomountServiceAccountToken: pointer.Bool(true),
 	}

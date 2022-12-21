@@ -21,6 +21,14 @@ func Prometheus(cell *monitoringv1alpha1.Cell) *monitoringv1.Prometheus {
 			Name:      fmt.Sprintf("%s-%s", Name, cell.Name),
 			Namespace: cell.Namespace,
 			Labels:    cell.Labels,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: cell.APIVersion,
+					Kind:       cell.Kind,
+					Name:       cell.Name,
+					UID:        cell.UID,
+				},
+			},
 		},
 		Spec: monitoringv1.PrometheusSpec{
 			RuleSelector: &metav1.LabelSelector{},
@@ -35,7 +43,7 @@ func Prometheus(cell *monitoringv1alpha1.Cell) *monitoringv1.Prometheus {
 					RunAsUser:    pointer.Int64(1000),
 					RunAsNonRoot: pointer.Bool(true),
 				},
-				ServiceAccountName: fmt.Sprintf("prometheus-%s", Name),
+				ServiceAccountName: fmt.Sprintf("%s-%s", Name, cell.Name),
 				ExternalLabels: map[string]string{
 					"cluster": cell.Spec.ClusterName,
 				},

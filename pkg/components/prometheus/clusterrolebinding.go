@@ -18,6 +18,14 @@ func ClusterRoleBinding(cell *monitoringv1alpha1.Cell) *rbacv1.ClusterRoleBindin
 		ObjectMeta: metav1.ObjectMeta{
 			Name:   fmt.Sprintf("%s-%s", Name, cell.Name),
 			Labels: cell.Labels,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: cell.APIVersion,
+					Kind:       cell.Kind,
+					Name:       cell.Name,
+					UID:        cell.UID,
+				},
+			},
 		},
 		Subjects: []rbacv1.Subject{
 			{

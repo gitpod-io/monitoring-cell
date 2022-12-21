@@ -20,6 +20,14 @@ func Service(cell *monitoringv1alpha1.Cell) *corev1.Service {
 			Name:      fmt.Sprintf("%s-%s", Name, cell.Name),
 			Namespace: cell.Namespace,
 			Labels:    cell.Labels,
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion: cell.APIVersion,
+					Kind:       cell.Kind,
+					Name:       cell.Name,
+					UID:        cell.UID,
+				},
+			},
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
