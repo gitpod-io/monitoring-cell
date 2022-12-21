@@ -29,9 +29,10 @@ type CellSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	Metrics MetricsSpec `json:"metrics,omitempty"`
-	Logs    LogsSpec    `json:"logs,omitempty"`
-	Traces  TracesSpec  `json:"traces,omitempty"`
+	ClusterName string      `json:"cluster_name,omitempty"`
+	Metrics     MetricsSpec `json:"metrics,omitempty"`
+	Logs        LogsSpec    `json:"logs,omitempty"`
+	Traces      TracesSpec  `json:"traces,omitempty"`
 }
 
 // MetricsSpec defines how metrics are handled within a monitoring cell
@@ -58,6 +59,9 @@ type TracesSpec struct {
 type CellStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+
+	// PrometheusOperatorReady reports whether Prometheus-Operator is in a ready or broken state
+	PrometheusOperatorReady *bool `json:"prometheus_operator_ready,omitempty"`
 
 	// PrometheusReady reports whether Prometheus is in a ready or broken state
 	PrometheusReady *bool `json:"prometheus_ready,omitempty"`

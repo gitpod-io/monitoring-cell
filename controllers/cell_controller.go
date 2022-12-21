@@ -94,6 +94,12 @@ func (r *CellReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, err
 	}
 
+	err = r.reconcilePrometheus(ctx, &cell, req)
+	if err != nil {
+		r.Logger.Error(err, "Failed to reconcile Prometheus")
+		return ctrl.Result{}, err
+	}
+
 	cell.Status.PrometheusReady = isPrometheusReady
 	cell.Status.PrometheusOperatorReady = &poReady
 	if err := r.Status().Update(ctx, &cell); err != nil {
@@ -373,4 +379,9 @@ func (r *CellReconciler) isPrometheusOperatorReady(ctx context.Context, cell *mo
 	}
 
 	return true, nil
+}
+
+func (r *CellReconciler) reconcilePrometheus(ctx context.Context, cell *monitoringv1alpha1.Cell, req ctrl.Request) error {
+
+	return nil
 }

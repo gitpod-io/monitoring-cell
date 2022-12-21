@@ -35,6 +35,8 @@ spec:
           spec:
             description: CellSpec defines the desired state of Cell
             properties:
+              cluster_name:
+                type: string
               logs:
                 description: LogsSpec defines how logs are handled within a monitoring
                   cell
@@ -611,6 +613,10 @@ spec:
           status:
             description: CellStatus defines the observed state of Cell
             properties:
+              prometheus_operator_ready:
+                description: PrometheusOperatorReady reports whether Prometheus-Operator
+                  is in a ready or broken state
+                type: boolean
               prometheus_ready:
                 description: PrometheusReady reports whether Prometheus is in a ready
                   or broken state
