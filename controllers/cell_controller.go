@@ -30,6 +30,7 @@ import (
 	monitoringv1alpha1 "github.com/gitpod-io/monitoring-cell/api/v1alpha1"
 	prometheusoperator "github.com/gitpod-io/monitoring-cell/pkg/components/prometheus-operator"
 	"github.com/go-logr/logr"
+	pomonitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
 	appsv1 "k8s.io/api/apps/v1"
 
 	corev1 "k8s.io/api/core/v1"
@@ -70,6 +71,7 @@ func (r *CellReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	r.Logger = log.FromContext(ctx)
 	var cell monitoringv1alpha1.Cell
 	isPrometheusReady := pointer.Bool(false)
+
 	if err := r.Get(ctx, req.NamespacedName, &cell); err != nil {
 		r.Logger.Error(err, "Unable to fetch Cell")
 
@@ -82,7 +84,18 @@ func (r *CellReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, err
 	}
 
+	poReady, err := r.isPrometheusOperatorReady(ctx, &cell)
+	if err != nil {
+		r.Logger.Error(err, "Failed to get Prometheus-operator Status")
+		return ctrl.Result{}, err
+	}
+	if !poReady {
+		r.Logger.Error(err, "prometheus-operator still not ready to handle prometheus instances")
+		return ctrl.Result{}, err
+	}
+
 	cell.Status.PrometheusReady = isPrometheusReady
+	cell.Status.PrometheusOperatorReady = &poReady
 	if err := r.Status().Update(ctx, &cell); err != nil {
 		r.Logger.Error(err, "Unable to update Cell status")
 		return ctrl.Result{}, err
@@ -94,7 +107,6 @@ func (r *CellReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 // SetupWithManager sets up the controller with the Manager.
 func (r *CellReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &appsv1.Deployment{}, POOwnerKey, func(rawObject client.Object) []string {
-		// grab de deployment object, extract the owner
 		deployment := rawObject.(*appsv1.Deployment)
 		owner := metav1.GetControllerOf(deployment)
 		if owner == nil {
@@ -111,7 +123,6 @@ func (r *CellReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.Service{}, POOwnerKey, func(rawObject client.Object) []string {
-		// grab de deployment object, extract the owner
 		service := rawObject.(*corev1.Service)
 		owner := metav1.GetControllerOf(service)
 		if owner == nil {
@@ -128,7 +139,6 @@ func (r *CellReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &corev1.ServiceAccount{}, POOwnerKey, func(rawObject client.Object) []string {
-		// grab de deployment object, extract the owner
 		serviceAccount := rawObject.(*corev1.ServiceAccount)
 		owner := metav1.GetControllerOf(serviceAccount)
 		if owner == nil {
@@ -145,7 +155,6 @@ func (r *CellReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &rbacv1.ClusterRole{}, POOwnerKey, func(rawObject client.Object) []string {
-		// grab de deployment object, extract the owner
 		clusterRole := rawObject.(*rbacv1.ClusterRole)
 		owner := metav1.GetControllerOf(clusterRole)
 		if owner == nil {
@@ -162,9 +171,24 @@ func (r *CellReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	}
 
 	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &rbacv1.ClusterRoleBinding{}, POOwnerKey, func(rawObject client.Object) []string {
-		// grab de deployment object, extract the owner
 		clusterRoleBinding := rawObject.(*rbacv1.ClusterRoleBinding)
 		owner := metav1.GetControllerOf(clusterRoleBinding)
+		if owner == nil {
+			return nil
+		}
+
+		if owner.APIVersion != apiGVStr || owner.Kind != "Cell" {
+			return nil
+		}
+
+		return []string{owner.Name}
+	}); err != nil {
+		return err
+	}
+
+	if err := mgr.GetFieldIndexer().IndexField(context.Background(), &pomonitoringv1.ServiceMonitor{}, POOwnerKey, func(rawObject client.Object) []string {
+		serviceMonitor := rawObject.(*pomonitoringv1.ServiceMonitor)
+		owner := metav1.GetControllerOf(serviceMonitor)
 		if owner == nil {
 			return nil
 		}
@@ -185,6 +209,7 @@ func (r *CellReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ServiceAccount{}).
 		Owns(&rbacv1.ClusterRole{}).
 		Owns(&rbacv1.ClusterRoleBinding{}).
+		Owns(&pomonitoringv1.ServiceMonitor{}).
 		Complete(r)
 }
 
@@ -307,5 +332,45 @@ func (r *CellReconciler) reconcilePrometheusOperator(ctx context.Context, cell *
 		}
 	}
 
+	/** ServiceMonitor **/
+	var serviceMonitor pomonitoringv1.ServiceMonitor
+	err = r.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-%s", prometheusoperator.Name, cell.Name), Namespace: cell.Namespace}, &serviceMonitor)
+	if client.IgnoreNotFound(err) != nil {
+		r.Logger.Error(err, "unable to get child servicemonitor")
+		return err
+	}
+
+	desiredServiceMonitor := prometheusoperator.ServiceMonitor(cell)
+	if apierrors.IsNotFound(err) {
+		if err := r.Create(ctx, desiredServiceMonitor); err != nil {
+			r.Logger.Error(err, "failed to create prometheus-operator's ServiceMonitor")
+			return err
+		}
+	} else {
+		deployment.Labels = desiredDeployment.Labels
+		deployment.Name = desiredDeployment.Name
+		deployment.Spec = desiredDeployment.Spec
+		if err := r.Update(ctx, &deployment); err != nil {
+			r.Logger.Error(err, "failed to update prometheus-operator's ServiceMonitor")
+			return err
+		}
+	}
+
 	return nil
+}
+
+func (r *CellReconciler) isPrometheusOperatorReady(ctx context.Context, cell *monitoringv1alpha1.Cell) (bool, error) {
+	var deployment appsv1.Deployment
+	err := r.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-%s", prometheusoperator.Name, cell.Name), Namespace: cell.Namespace}, &deployment)
+	if client.IgnoreNotFound(err) != nil {
+		r.Logger.Error(err, "unable to get child deployment")
+		return false, err
+	}
+
+	if deployment.Status.AvailableReplicas < 1 {
+		r.Logger.Info("prometheus-operator has 0 available replicas")
+		return false, nil
+	}
+
+	return true, nil
 }
