@@ -36,6 +36,12 @@ spec:
             description: CellSpec defines the desired state of Cell
             properties:
               cluster_name:
+                description: ClusterName will be added as extra data to all metrics,
+                  logs and traces when being sent to a remote storage
+                type: string
+              gitpod_namespace:
+                description: GitpodNamespace identifies the namespace where Gitpod
+                  components were deployed to
                 type: string
               logs:
                 description: LogsSpec defines how logs are handled within a monitoring

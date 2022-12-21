@@ -29,10 +29,14 @@ type CellSpec struct {
 	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
 
-	ClusterName string      `json:"cluster_name,omitempty"`
-	Metrics     MetricsSpec `json:"metrics,omitempty"`
-	Logs        LogsSpec    `json:"logs,omitempty"`
-	Traces      TracesSpec  `json:"traces,omitempty"`
+	// ClusterName will be added as extra data to all metrics, logs and traces when being sent to a remote storage
+	ClusterName string `json:"cluster_name,omitempty"`
+
+	// GitpodNamespace identifies the namespace where Gitpod components were deployed to
+	GitpodNamespace string      `json:"gitpod_namespace,omitempty"`
+	Metrics         MetricsSpec `json:"metrics,omitempty"`
+	Logs            LogsSpec    `json:"logs,omitempty"`
+	Traces          TracesSpec  `json:"traces,omitempty"`
 }
 
 // MetricsSpec defines how metrics are handled within a monitoring cell
