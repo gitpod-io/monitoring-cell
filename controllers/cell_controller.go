@@ -453,7 +453,7 @@ func (r *CellReconciler) reconcilePrometheus(ctx context.Context, cell *monitori
 	desiredRoles := prometheus.Roles(cell)
 	var currentRole rbacv1.Role
 	for _, role := range desiredRoles {
-		err = r.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-%s", role.Name, cell.Name), Namespace: cell.Namespace}, &currentRole)
+		err = r.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-%s", role.Name, cell.Name), Namespace: role.Namespace}, &currentRole)
 		if client.IgnoreNotFound(err) != nil {
 			r.Logger.Error(err, "unable to get child Roles")
 			return err
@@ -478,7 +478,7 @@ func (r *CellReconciler) reconcilePrometheus(ctx context.Context, cell *monitori
 	desiredRoleBindings := prometheus.RoleBindings(cell)
 	var currentRoleBinding rbacv1.RoleBinding
 	for _, roleBinding := range desiredRoleBindings {
-		err = r.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-%s", roleBinding.Name, cell.Name), Namespace: cell.Namespace}, &currentRoleBinding)
+		err = r.Get(ctx, types.NamespacedName{Name: fmt.Sprintf("%s-%s", roleBinding.Name, cell.Name), Namespace: roleBinding.Namespace}, &currentRoleBinding)
 		if client.IgnoreNotFound(err) != nil {
 			r.Logger.Error(err, "unable to get child RoleBindings")
 			return err
