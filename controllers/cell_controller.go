@@ -21,6 +21,8 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/go-logr/logr"
+
 	monitoringv1alpha1 "github.com/gitpod-io/monitoring-cell/api/v1alpha1"
 	"github.com/gitpod-io/monitoring-cell/pkg/components/gitpod"
 	kubernetes "github.com/gitpod-io/monitoring-cell/pkg/components/kubernetes"
@@ -28,8 +30,8 @@ import (
 	nodeexporter "github.com/gitpod-io/monitoring-cell/pkg/components/node-exporter"
 	"github.com/gitpod-io/monitoring-cell/pkg/components/prometheus"
 	prometheusoperator "github.com/gitpod-io/monitoring-cell/pkg/components/prometheus-operator"
-	"github.com/go-logr/logr"
 	pomonitoringv1 "github.com/prometheus-operator/prometheus-operator/pkg/apis/monitoring/v1"
+
 	appsv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
 	networkv1 "k8s.io/api/networking/v1"
@@ -83,47 +85,38 @@ func (r *CellReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 		return ctrl.Result{}, client.IgnoreNotFound(err)
 	}
 
-	err := r.updateCellStatus(ctx, &cell)
-	if err != nil {
+	// Reconcile Prometheus Operator -- Continue
+	if err := r.reconcilePrometheusOperator(ctx, &cell, req); err != nil {
+		r.Logger.Error(err, "Unable to reconcile Prometheus Operator")
+		return ctrl.Result{}, err
+	}
+	// Reconcile Prometheus -- Continue
+	if err := r.reconcilePrometheus(ctx, &cell, req); err != nil {
+		r.Logger.Error(err, "Unable to reconcile Prometheus")
+		return ctrl.Result{}, err
+	}
+	// Reconcile Exporters -- Continue
+	if err := r.reconcileExporters(ctx, &cell, req); err != nil {
+		r.Logger.Error(err, "Unable to reconcile Exporters")
+		return ctrl.Result{}, err
+	}
+	// Reconcile Gitpod servicemonitors -- Continue
+	if err := r.reconcileGitpodServiceMonitors(ctx, &cell, req); err != nil {
+		r.Logger.Error(err, "Unable to reconcile Gitpod ServiceMonitors")
+		return ctrl.Result{}, err
+	}
+
+	// Update Status, and if not ready, requeue reconciliation
+	if err := r.updateStatus(ctx, &cell); err != nil {
 		r.Logger.Error(err, "Unable to update Cell status")
 		return ctrl.Result{}, err
 	}
 
-	if !*cell.Status.PrometheusOperatorReady {
-		err = r.reconcilePrometheusOperator(ctx, &cell, req)
-		if err != nil {
-			r.Logger.Error(err, "Failed to reconcile Prometheus-Operator")
-			return ctrl.Result{}, err
-		}
+	if !r.isCellReady(ctx, cell) {
+		r.Logger.Info("Cell is not ready, requeuing")
+		return ctrl.Result{RequeueAfter: 5 * time.Second}, nil
 	}
 
-	if !*cell.Status.PrometheusReady {
-		err = r.reconcilePrometheus(ctx, &cell, req)
-		if err != nil {
-			r.Logger.Error(err, "Failed to reconcile Prometheus")
-			return ctrl.Result{}, err
-		}
-	}
-
-	err = r.reconcileGitpodMonitoring(ctx, &cell, req)
-	if err != nil {
-		r.Logger.Error(err, "Failed to reconcile Gitpod monitoring resources")
-		return ctrl.Result{}, err
-	}
-
-	err = r.reconcileExporters(ctx, &cell, req)
-	if err != nil {
-		r.Logger.Error(err, "Failed to reconcile prometheus exporters")
-		return ctrl.Result{}, err
-	}
-
-	if !*cell.Status.PrometheusReady ||
-		!*cell.Status.APIServerReady ||
-		!*cell.Status.KubeletReady ||
-		!*cell.Status.NodeExporterReady ||
-		!*cell.Status.KubeStateMetricsReady {
-		return ctrl.Result{RequeueAfter: time.Second * 10}, nil
-	}
 	return ctrl.Result{}, nil
 }
 
@@ -246,7 +239,7 @@ func (r *CellReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *CellReconciler) updateCellStatus(ctx context.Context, cell *monitoringv1alpha1.Cell) error {
+func (r *CellReconciler) updateStatus(ctx context.Context, cell *monitoringv1alpha1.Cell) error {
 	poReady, err := r.isPrometheusOperatorReady(ctx, cell)
 	if err != nil {
 		r.Logger.Error(err, "Failed to get Prometheus-operator Status")
@@ -669,7 +662,7 @@ func (r *CellReconciler) isPrometheusReady(ctx context.Context, cell *monitoring
 	return true, nil
 }
 
-func (r *CellReconciler) reconcileGitpodMonitoring(ctx context.Context, cell *monitoringv1alpha1.Cell, req ctrl.Request) error {
+func (r *CellReconciler) reconcileGitpodServiceMonitors(ctx context.Context, cell *monitoringv1alpha1.Cell, req ctrl.Request) error {
 	/** NetworkPolicies **/
 	desirednps := gitpod.NetworkPolicies(cell)
 	var currentnp networkv1.NetworkPolicy
@@ -960,4 +953,13 @@ func (r *CellReconciler) isExporterReady(ctx context.Context, cell *monitoringv1
 	}
 
 	return true, nil
+}
+
+func (r *CellReconciler) isCellReady(ctx context.Context, cell monitoringv1alpha1.Cell) bool {
+	return *cell.Status.PrometheusOperatorReady &&
+		*cell.Status.PrometheusReady &&
+		*cell.Status.APIServerReady &&
+		*cell.Status.KubeletReady &&
+		*cell.Status.NodeExporterReady &&
+		*cell.Status.KubeStateMetricsReady
 }
