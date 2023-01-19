@@ -65,23 +65,56 @@ type CellStatus struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// PrometheusOperatorReady reports whether Prometheus-Operator is in a ready or broken state
-	PrometheusOperatorReady *bool `json:"prometheusOperatorReady,omitempty"`
+	PrometheusOperatorReady OperatorReconciliationStatus `json:"prometheusOperatorReady,omitempty"`
 
 	// PrometheusReady reports whether Prometheus is in a ready or broken state
-	PrometheusReady *bool `json:"prometheusReady,omitempty"`
+	PrometheusReady OperatorReconciliationStatus `json:"prometheusReady,omitempty"`
 
 	// NodeExporterReady reports whether Prometheus is able to scrape node-exporter metrics or not
-	NodeExporterReady *bool `json:"nodeExporterReady,omitempty"`
+	NodeExporterReady ExporterReconciliationStatus `json:"nodeExporterReady,omitempty"`
 
 	// KubeStateMetricsReady reports whether Prometheus is able to scrape node-exporter metrics or not
-	KubeStateMetricsReady *bool `json:"kubeStateMetricsReady,omitempty"`
+	KubeStateMetricsReady ExporterReconciliationStatus `json:"kubeStateMetricsReady,omitempty"`
 
 	// KubeletReady reports whether Prometheus is able to scrape node-exporter metrics or not
-	KubeletReady *bool `json:"kubeletReady,omitempty"`
+	KubeletReady ExporterReconciliationStatus `json:"kubeletReady,omitempty"`
 
 	// APIServerReady reports whether Prometheus is able to scrape node-exporter metrics or not
-	APIServerReady *bool `json:"apiServerReady,omitempty"`
+	APIServerReady ExporterReconciliationStatus `json:"apiServerReady,omitempty"`
 }
+
+type OperatorReconciliationStatus struct {
+	LastModified metav1.Time `json:"lastModified,omitempty"`
+
+	Status OperatorStatusType `json:"status,omitempty"`
+
+	StatusMessage string `json:"message,omitempty"`
+}
+
+type OperatorStatusType string
+
+const (
+	OperatorStatusUnkown      OperatorStatusType = "Unknown"
+	OperatorStatusReconciling OperatorStatusType = "Reconciling"
+	OperatorStatusReady       OperatorStatusType = "Ready"
+)
+
+type ExporterReconciliationStatus struct {
+	LastModified metav1.Time `json:"lastModified,omitempty"`
+
+	Status ExporterStatusType `json:"status,omitempty"`
+
+	StatusMessage string `json:"message,omitempty"`
+}
+
+type ExporterStatusType string
+
+const (
+	ExporterReconciling    ExporterStatusType = "Reconciling"
+	ExporterUnknown        ExporterStatusType = "Unknown"
+	ExporterMetricNotFount ExporterStatusType = "MetricNotFound"
+	ExporterReady          ExporterStatusType = "Ready"
+)
 
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status

@@ -107,7 +107,7 @@ func (r *CellReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.
 	}
 
 	// Update Status, and if not ready, requeue reconciliation
-	if err := r.updateStatus(ctx, &cell); err != nil {
+	if err := r.updateCellStatus(ctx, &cell); err != nil {
 		r.Logger.Error(err, "Unable to update Cell status")
 		return ctrl.Result{}, err
 	}
@@ -239,49 +239,115 @@ func (r *CellReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Complete(r)
 }
 
-func (r *CellReconciler) updateStatus(ctx context.Context, cell *monitoringv1alpha1.Cell) error {
+func (r *CellReconciler) updateCellStatus(ctx context.Context, cell *monitoringv1alpha1.Cell) error {
+	cell.Status.PrometheusOperatorReady.LastModified = metav1.Now()
+	cell.Status.PrometheusOperatorReady = monitoringv1alpha1.OperatorReconciliationStatus{
+		Status: monitoringv1alpha1.OperatorStatusReconciling,
+	}
 	poReady, err := r.isPrometheusOperatorReady(ctx, cell)
 	if err != nil {
 		r.Logger.Error(err, "Failed to get Prometheus-operator Status")
+		cell.Status.PrometheusOperatorReady.Status = monitoringv1alpha1.OperatorStatusUnkown
+		cell.Status.PrometheusOperatorReady.StatusMessage = err.Error()
 		return err
 	}
-	cell.Status.PrometheusOperatorReady = &poReady
+	if poReady {
+		cell.Status.PrometheusOperatorReady.Status = monitoringv1alpha1.OperatorStatusReady
+		cell.Status.PrometheusOperatorReady.StatusMessage = "Prometheus-operator is ready"
+	}
 
+	cell.Status.PrometheusReady.LastModified = metav1.Now()
+	cell.Status.PrometheusReady = monitoringv1alpha1.OperatorReconciliationStatus{
+		Status: monitoringv1alpha1.OperatorStatusReconciling,
+	}
 	prometheusReady, err := r.isPrometheusReady(ctx, cell)
 	if err != nil {
 		r.Logger.Error(err, "Failed to get Prometheus Status")
+		cell.Status.PrometheusReady.Status = monitoringv1alpha1.OperatorStatusUnkown
+		cell.Status.PrometheusReady.StatusMessage = err.Error()
 		return err
 	}
-	cell.Status.PrometheusReady = &prometheusReady
-
 	if prometheusReady {
-		neReady, err := r.isExporterReady(ctx, cell, `up{job="node-exporter"} == 1`, 1)
-		if err != nil {
-			r.Logger.Error(err, "Failed to fetch node-exporter's metrics")
-			return err
-		}
-		cell.Status.NodeExporterReady = &neReady
+		cell.Status.PrometheusReady.Status = monitoringv1alpha1.OperatorStatusReady
+		cell.Status.PrometheusReady.StatusMessage = "Prometheus is ready"
+	}
 
-		ksmReady, err := r.isExporterReady(ctx, cell, `up{job="kube-state-metrics"} == 1`, 2)
-		if err != nil {
-			r.Logger.Error(err, "Failed to fetch kubestate-metrics' metrics")
-			return err
-		}
-		cell.Status.KubeStateMetricsReady = &ksmReady
+	cell.Status.NodeExporterReady.LastModified = metav1.Now()
+	cell.Status.NodeExporterReady = monitoringv1alpha1.ExporterReconciliationStatus{
+		Status: monitoringv1alpha1.ExporterReconciling,
+	}
+	neReady, err := r.isExporterReady(ctx, cell, `up{job="node-exporter"} == 1`)
+	if err != nil {
+		r.Logger.Error(err, "Failed to fetch node-exporter's metrics")
+		cell.Status.NodeExporterReady.Status = monitoringv1alpha1.ExporterUnknown
+		cell.Status.NodeExporterReady.StatusMessage = err.Error()
+		return err
+	}
+	//TODO: Node exporter actually expects 1 per node, but we only have 1 during our tests.
+	if neReady != 1 {
+		cell.Status.NodeExporterReady.Status = monitoringv1alpha1.ExporterMetricNotFount
+		cell.Status.NodeExporterReady.StatusMessage = fmt.Sprintf("Node exporter is not ready, expected 1 timeseries, got %d", neReady)
+	} else {
+		cell.Status.NodeExporterReady.Status = monitoringv1alpha1.ExporterReady
+		cell.Status.NodeExporterReady.StatusMessage = "We've successfuly scraped metrics from node-exporter"
+	}
 
-		kubeletReady, err := r.isExporterReady(ctx, cell, `up{job="kubelet"} == 1`, 3)
-		if err != nil {
-			r.Logger.Error(err, "Failed to fetch kubelet's' metrics")
-			return err
-		}
-		cell.Status.KubeletReady = &kubeletReady
+	cell.Status.KubeStateMetricsReady.LastModified = metav1.Now()
+	cell.Status.KubeStateMetricsReady = monitoringv1alpha1.ExporterReconciliationStatus{
+		Status: monitoringv1alpha1.ExporterReconciling,
+	}
+	ksmReady, err := r.isExporterReady(ctx, cell, `up{job="kube-state-metrics"} == 1`)
+	if err != nil {
+		r.Logger.Error(err, "Failed to fetch kubestate-metrics' metrics")
+		cell.Status.KubeStateMetricsReady.Status = monitoringv1alpha1.ExporterUnknown
+		cell.Status.KubeStateMetricsReady.StatusMessage = err.Error()
+		return err
+	}
+	if ksmReady != 2 {
+		cell.Status.KubeStateMetricsReady.Status = monitoringv1alpha1.ExporterMetricNotFount
+		cell.Status.KubeStateMetricsReady.StatusMessage = fmt.Sprintf("Kube-state-metrics is not ready, expected 2 timeseries, got %d", ksmReady)
+	} else {
+		cell.Status.KubeStateMetricsReady.Status = monitoringv1alpha1.ExporterReady
+		cell.Status.KubeStateMetricsReady.StatusMessage = "We've successfuly scraped metrics from kube-state-metrics"
+	}
 
-		apiserverReady, err := r.isExporterReady(ctx, cell, `up{job="apiserver"} == 1`, 1)
-		if err != nil {
-			r.Logger.Error(err, "Failed to fetch apiserver's' metrics")
-			return err
-		}
-		cell.Status.APIServerReady = &apiserverReady
+	cell.Status.KubeletReady.LastModified = metav1.Now()
+	cell.Status.KubeletReady = monitoringv1alpha1.ExporterReconciliationStatus{
+		Status: monitoringv1alpha1.ExporterReconciling,
+	}
+	kubeletReady, err := r.isExporterReady(ctx, cell, `up{job="kubelet"} == 1`)
+	if err != nil {
+		r.Logger.Error(err, "Failed to fetch kubelet's' metrics")
+		cell.Status.KubeletReady.Status = monitoringv1alpha1.ExporterUnknown
+		cell.Status.KubeletReady.StatusMessage = err.Error()
+		return err
+	}
+	//TODO: Kubelet actually expects 3 per node(kubelet has 3 metrics endpoints), but we only have 1 node during our tests.
+	if kubeletReady != 3 {
+		cell.Status.KubeletReady.Status = monitoringv1alpha1.ExporterMetricNotFount
+		cell.Status.KubeletReady.StatusMessage = fmt.Sprintf("Kubelet is not ready, expected 1 timeseries, got %d", kubeletReady)
+	} else {
+		cell.Status.KubeletReady.Status = monitoringv1alpha1.ExporterReady
+		cell.Status.KubeletReady.StatusMessage = "We've successfuly scraped metrics from kubelet"
+	}
+
+	cell.Status.APIServerReady.LastModified = metav1.Now()
+	cell.Status.APIServerReady = monitoringv1alpha1.ExporterReconciliationStatus{
+		Status: monitoringv1alpha1.ExporterReconciling,
+	}
+	apiserverReady, err := r.isExporterReady(ctx, cell, `up{job="apiserver"} == 1`)
+	if err != nil {
+		r.Logger.Error(err, "Failed to fetch apiserver's' metrics")
+		cell.Status.APIServerReady.Status = monitoringv1alpha1.ExporterUnknown
+		cell.Status.APIServerReady.StatusMessage = err.Error()
+		return err
+	}
+	if apiserverReady != 1 {
+		cell.Status.APIServerReady.Status = monitoringv1alpha1.ExporterMetricNotFount
+		cell.Status.APIServerReady.StatusMessage = fmt.Sprintf("Apiserver is not ready, expected 1 timeseries, got %d", apiserverReady)
+	} else {
+		cell.Status.APIServerReady.Status = monitoringv1alpha1.ExporterReady
+		cell.Status.APIServerReady.StatusMessage = "We've successfuly scraped metrics from apiserver"
 	}
 
 	return r.Status().Update(ctx, cell)
@@ -940,26 +1006,21 @@ func (r *CellReconciler) reconcileExporters(ctx context.Context, cell *monitorin
 	return nil
 }
 
-func (r *CellReconciler) isExporterReady(ctx context.Context, cell *monitoringv1alpha1.Cell, query string, expectedResult int) (bool, error) {
+func (r *CellReconciler) isExporterReady(ctx context.Context, cell *monitoringv1alpha1.Cell, query string) (int, error) {
 
 	rsp, err := prometheus.Query(query, cell, r.PodRESTClient)
 	if err != nil {
-		return false, err
+		return -1, err
 	}
 
-	if rsp != expectedResult {
-		r.Logger.Error(err, "querying for exporter metrics returned unexpected result. Check cell statu or Prometheus targets page for further information")
-		return false, nil
-	}
-
-	return true, nil
+	return rsp, nil
 }
 
 func (r *CellReconciler) isCellReady(ctx context.Context, cell monitoringv1alpha1.Cell) bool {
-	return *cell.Status.PrometheusOperatorReady &&
-		*cell.Status.PrometheusReady &&
-		*cell.Status.APIServerReady &&
-		*cell.Status.KubeletReady &&
-		*cell.Status.NodeExporterReady &&
-		*cell.Status.KubeStateMetricsReady
+	return cell.Status.PrometheusOperatorReady.Status == monitoringv1alpha1.OperatorStatusReady &&
+		cell.Status.PrometheusReady.Status == monitoringv1alpha1.OperatorStatusReady &&
+		cell.Status.NodeExporterReady.Status == monitoringv1alpha1.ExporterReady &&
+		cell.Status.KubeletReady.Status == monitoringv1alpha1.ExporterReady &&
+		cell.Status.APIServerReady.Status == monitoringv1alpha1.ExporterReady &&
+		cell.Status.KubeStateMetricsReady.Status == monitoringv1alpha1.ExporterReady
 }
