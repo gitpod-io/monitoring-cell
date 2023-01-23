@@ -3,6 +3,7 @@ module github.com/gitpod-io/monitoring-cell
 go 1.19
 
 require (
+	github.com/Jeffail/gabs v1.4.0
 	github.com/onsi/ginkgo/v2 v2.7.0
 	github.com/onsi/gomega v1.25.0
 	k8s.io/apimachinery v0.26.1
@@ -18,7 +19,7 @@ require (
 	github.com/Azure/go-autorest/autorest/date v0.3.0 // indirect
 	github.com/Azure/go-autorest/logger v0.2.1 // indirect
 	github.com/Azure/go-autorest/tracing v0.6.0 // indirect
-	github.com/Jeffail/gabs v1.4.0
+	github.com/Jeffail/gabs/v2 v2.6.1
 	github.com/PuerkitoBio/purell v1.1.1 // indirect
 	github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
