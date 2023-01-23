@@ -105,9 +105,9 @@ endif
 .PHONY: install
 install: manifests kustomize ## Install CRDs into the K8s cluster specified in ~/.kube/config.
 	$(KUSTOMIZE) build config/crd | kubectl apply -f -
-	git clone https://github.com/gitpod-io/observability
+	git clone https://github.com/gitpod-io/observability /tmp/observability
 	kubectl apply --server-side -f /tmp/observability/monitoring-satellite/manifests/crds/
-	rm -rf ./observability
+	rm -rf /tmp/observability
 
 .PHONY: uninstall
 uninstall: manifests kustomize ## Uninstall CRDs from the K8s cluster specified in ~/.kube/config. Call with ignore-not-found=true to ignore resource not found errors during deletion.
