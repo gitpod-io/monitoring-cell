@@ -10,6 +10,9 @@ const (
 
 func Labels(cell *monitoringv1alpha1.Cell) map[string]string {
 	c := cell.DeepCopy()
+	if c.Labels == nil {
+		c.Labels = map[string]string{}
+	}
 	labels := c.Labels
 	labels["app.kubernetes.io/name"] = Name
 
