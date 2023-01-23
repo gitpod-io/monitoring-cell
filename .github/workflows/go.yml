@@ -1,7 +1,7 @@
 # This workflow will build a golang project
 # For more information see: https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-go
 
-name: golangci-lint
+name: go
 
 on:
   pull_request:
@@ -9,7 +9,7 @@ on:
     branches: [ "main" ]
 jobs:
   golangci:
-    name: lint
+    name: Test
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
@@ -19,5 +19,5 @@ jobs:
       with:
         go-version-file: 'go.mod'
 
-    - name: golangci-lint
-      uses: golangci/golangci-lint-action@v3.3.1
+    - name: Test
+      run: go test -v ./...
